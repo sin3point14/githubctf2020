@@ -8,10 +8,11 @@ import DataFlow::PartialPathGraph // this is different!
 
 class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
     override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
-        exists(MethodAccess ma |
-            node1.asExpr() = ma and
-            node2.asExpr() = ma.getQualifier() and
-            ma.getCallee().getQualifiedName() in ["Container.getSoftConstraints", "Container.getHardConstraints"]
+        exists(MethodAccess ma |    
+            node2.asExpr() = ma and
+            node1.asExpr() = ma.getQualifier() and
+            (ma.getCallee().getQualifiedName() in ["Container.getSoftConstraints", "Container.getHardConstraints"] or
+            ma.getCallee().getName() in ["keySet"])
         )
     }
 }
