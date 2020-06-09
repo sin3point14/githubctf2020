@@ -24,11 +24,23 @@ class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
 
 class TryCatchAdditionalStep extends TaintTracking::AdditionalTaintStep {
     override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
-        exists(TryStmt ts, MethodAccess ma, VarAccess va|
+        exists(TryStmt ts, CatchClause cc, MethodAccess ma1, MethodAccess ma2, VarAccess va, string methodName, RefType caught|
             node1.asExpr() = va and
             va.getEnclosingStmt() = ts.getBlock().getAChild() and
-            node2.asExpr() = ma and
-            ma.getEnclosingStmt() = ts.getACatchClause().getBlock().getAChild()
+            (ma1.getQualifier() = va or ma1.getAnArgument() = va) and
+    
+            cc = ts.getACatchClause() and
+    
+            caught = cc.getACaughtType() and
+            
+            ma1.getCallee().getAThrownExceptionType().getASupertype*() = caught and
+    
+            node2.asExpr() = ma2 and
+            ma2.getEnclosingStmt() = cc.getBlock().getAChild() and
+            ma2.getQualifier() = cc.getVariable().getAnAccess() and
+            methodName = ma2.getCallee().getName() and
+            ( not (methodName in ["getStackTrace", "getSuppressed"]) ) and
+            (methodName.matches("get%") or methodName.matches("Get%") or methodName = "toString")
         )
     }
 }
@@ -58,13 +70,36 @@ where cfg.hasFlowPath(source, sink)
 select sink, source, sink, "Custom constraint error message contains unsanitized user data"
 
 
-predicate test(DataFlow::Node node1, DataFlow::Node node2) {
-    exists(TryStmt ts, CatchClause cc, MethodAccess ma, Block b, VarAccess s|
-        node1.asExpr() = s and
-        s.getEnclosingStmt() = ts.getBlock().getAChild() and
-        node2.asExpr() = ma and
-        ma.getEnclosingStmt() = ts.getACatchClause().getBlock().getAChild()
+// predicate test2 (DataFlow::Node node1, DataFlow::Node node2) {
+//     exists(TryStmt ts, CatchClause cc, MethodAccess ma1, MethodAccess ma2, VarAccess va, string methodName, RefType caught|
+//         node1.asExpr() = va and
+//         va.getEnclosingStmt() = ts.getBlock().getAChild() and
+//         (ma1.getQualifier() = va or ma1.getAnArgument() = va) and
+
+//         cc = ts.getACatchClause() and
+
+//         caught = cc.getACaughtType() and
+        
+//         ma1.getCallee().getAThrownExceptionType().getASupertype*() = caught and
+
+//         node2.asExpr() = ma2 and
+//         ma2.getEnclosingStmt() = cc.getBlock().getAChild() and
+//         ma2.getQualifier() = cc.getVariable().getAnAccess() and
+//         methodName = ma2.getCallee().getName() and
+//         ( not (methodName in ["getStackTrace", "getSuppressed"]) ) and
+//         (methodName.matches("get%") or methodName.matches("Get%") or methodName = "toString")
+//     )
+// }
+
+predicate test(MethodAccess ma, VarAccess va) {
+    exists(TryStmt ts, CatchClause cc, Block b|
+        // node1.asExpr() = s and
+        // s.getEnclosingStmt() = ts.getBlock().getAChild() and
+        // node2.asExpr() = ma and
+        // ma.getEnclosingStmt() = ts.getACatchClause().getBlock().getAChild()
         //ma.getAnArgument() = va.getQualifier()
+        ma.getMethod().getName().matches("a%") and
+        ma.getAnArgument() = va
     )
 }
 
