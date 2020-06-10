@@ -82,3 +82,26 @@ public class HelloWorld{
 69 -> public final native java.lang.Class java.lang.Object.getClass()
 70 -> public final native void java.lang.Object.notify()
 71 -> public final native void java.lang.Object.notifyAll()
+
+ScriptEngineManager-
+
+0 -> public void javax.script.ScriptEngineManager.setBindings(javax.script.Bindings)
+1 -> public javax.script.Bindings javax.script.ScriptEngineManager.getBindings()
+2 -> public javax.script.ScriptEngine javax.script.ScriptEngineManager.getEngineByName(java.lang.String)
+3 -> public javax.script.ScriptEngine javax.script.ScriptEngineManager.getEngineByExtension(java.lang.String)
+4 -> public javax.script.ScriptEngine javax.script.ScriptEngineManager.getEngineByMimeType(java.lang.String)
+5 -> public java.util.List javax.script.ScriptEngineManager.getEngineFactories()
+6 -> public void javax.script.ScriptEngineManager.registerEngineName(java.lang.String,javax.script.ScriptEngineFactory)
+7 -> public void javax.script.ScriptEngineManager.registerEngineMimeType(java.lang.String,javax.script.ScriptEngineFactory)
+8 -> public void javax.script.ScriptEngineManager.registerEngineExtension(java.lang.String,javax.script.ScriptEngineFactory)
+9 -> public java.lang.Object javax.script.ScriptEngineManager.get(java.lang.String)
+10 -> public void javax.script.ScriptEngineManager.put(java.lang.String,java.lang.Object)
+11 -> public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException
+12 -> public final native void java.lang.Object.wait(long) throws java.lang.InterruptedException
+13 -> public final void java.lang.Object.wait() throws java.lang.InterruptedException
+14 -> public boolean java.lang.Object.equals(java.lang.Object)
+15 -> public java.lang.String java.lang.Object.toString()
+16 -> public native int java.lang.Object.hashCode()
+17 -> public final native java.lang.Class java.lang.Object.getClass()
+18 -> public final native void java.lang.Object.notify()
+19 -> public final native void java.lang.Object.notifyAll()
