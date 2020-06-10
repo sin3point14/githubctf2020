@@ -1,0 +1,84 @@
+import java.lang.reflect.*; 
+import java.lang.String;
+
+public class HelloWorld{
+
+     public static void main(String []args){
+        Class a = Class.class;
+        for (int i = 0; i< a.getMethods().length; i++)
+        System.out.println(i + " -> " + a.getMethods()[i] );
+     }
+}
+
+0 -> public static java.lang.Class java.lang.Class.forName(java.lang.String) throws java.lang.ClassNotFoundException
+1 -> public static java.lang.Class java.lang.Class.forName(java.lang.String,boolean,java.lang.ClassLoader) throws java.lang.ClassNotFoundException
+2 -> public java.lang.String java.lang.Class.toString()
+3 -> public java.security.ProtectionDomain java.lang.Class.getProtectionDomain()
+4 -> public native boolean java.lang.Class.isAssignableFrom(java.lang.Class)
+5 -> public native boolean java.lang.Class.isInstance(java.lang.Object)
+6 -> public native int java.lang.Class.getModifiers()
+7 -> public native boolean java.lang.Class.isInterface()
+8 -> public native boolean java.lang.Class.isArray()
+9 -> public native boolean java.lang.Class.isPrimitive()
+10 -> public native java.lang.Class java.lang.Class.getSuperclass()
+11 -> public native java.lang.Class java.lang.Class.getComponentType()
+12 -> public java.lang.String java.lang.Class.getName()
+13 -> public java.lang.String java.lang.Class.toGenericString()
+14 -> public java.lang.Object java.lang.Class.newInstance() throws java.lang.InstantiationException,java.lang.IllegalAccessException
+15 -> public boolean java.lang.Class.isAnnotation()
+16 -> public boolean java.lang.Class.isSynthetic()
+17 -> public java.lang.ClassLoader java.lang.Class.getClassLoader()
+18 -> public java.lang.reflect.TypeVariable[] java.lang.Class.getTypeParameters()
+19 -> public java.lang.reflect.Type java.lang.Class.getGenericSuperclass()
+20 -> public java.lang.Package java.lang.Class.getPackage()
+21 -> public java.lang.Class[] java.lang.Class.getInterfaces()
+22 -> public java.lang.reflect.Type[] java.lang.Class.getGenericInterfaces()
+23 -> public native java.lang.Object[] java.lang.Class.getSigners()
+24 -> public java.lang.reflect.Method java.lang.Class.getEnclosingMethod() throws java.lang.SecurityException
+25 -> public java.lang.reflect.Constructor java.lang.Class.getEnclosingConstructor() throws java.lang.SecurityException
+26 -> public java.lang.Class java.lang.Class.getDeclaringClass() throws java.lang.SecurityException
+27 -> public java.lang.Class java.lang.Class.getEnclosingClass() throws java.lang.SecurityException
+28 -> public java.lang.String java.lang.Class.getSimpleName()
+29 -> public java.lang.String java.lang.Class.getTypeName()
+30 -> public java.lang.String java.lang.Class.getCanonicalName()
+31 -> public boolean java.lang.Class.isAnonymousClass()
+32 -> public boolean java.lang.Class.isLocalClass()
+33 -> public boolean java.lang.Class.isMemberClass()
+34 -> public java.lang.Class[] java.lang.Class.getClasses()
+35 -> public java.lang.reflect.Field[] java.lang.Class.getFields() throws java.lang.SecurityException
+36 -> public java.lang.reflect.Method[] java.lang.Class.getMethods() throws java.lang.SecurityException
+37 -> public java.lang.reflect.Constructor[] java.lang.Class.getConstructors() throws java.lang.SecurityException
+38 -> public java.lang.reflect.Field java.lang.Class.getField(java.lang.String) throws java.lang.NoSuchFieldException,java.lang.SecurityException
+39 -> public java.lang.reflect.Method java.lang.Class.getMethod(java.lang.String,java.lang.Class[]) throws java.lang.NoSuchMethodException,java.lang.SecurityException
+40 -> public java.lang.reflect.Constructor java.lang.Class.getConstructor(java.lang.Class[]) throws java.lang.NoSuchMethodException,java.lang.SecurityException
+41 -> public java.lang.Class[] java.lang.Class.getDeclaredClasses() throws java.lang.SecurityException
+42 -> public java.lang.reflect.Field[] java.lang.Class.getDeclaredFields() throws java.lang.SecurityException
+43 -> public java.lang.reflect.Method[] java.lang.Class.getDeclaredMethods() throws java.lang.SecurityException
+44 -> public java.lang.reflect.Constructor[] java.lang.Class.getDeclaredConstructors() throws java.lang.SecurityException
+45 -> public java.lang.reflect.Field java.lang.Class.getDeclaredField(java.lang.String) throws java.lang.NoSuchFieldException,java.lang.SecurityException
+46 -> public java.lang.reflect.Method java.lang.Class.getDeclaredMethod(java.lang.String,java.lang.Class[]) throws java.lang.NoSuchMethodException,java.lang.SecurityException
+47 -> public java.lang.reflect.Constructor java.lang.Class.getDeclaredConstructor(java.lang.Class[]) throws java.lang.NoSuchMethodException,java.lang.SecurityException
+48 -> public java.io.InputStream java.lang.Class.getResourceAsStream(java.lang.String)
+49 -> public java.net.URL java.lang.Class.getResource(java.lang.String)
+50 -> public boolean java.lang.Class.desiredAssertionStatus()
+51 -> public boolean java.lang.Class.isEnum()
+52 -> public java.lang.Object[] java.lang.Class.getEnumConstants()
+53 -> public java.lang.Object java.lang.Class.cast(java.lang.Object)
+54 -> public java.lang.Class java.lang.Class.asSubclass(java.lang.Class)
+55 -> public java.lang.annotation.Annotation java.lang.Class.getAnnotation(java.lang.Class)
+56 -> public boolean java.lang.Class.isAnnotationPresent(java.lang.Class)
+57 -> public java.lang.annotation.Annotation[] java.lang.Class.getAnnotationsByType(java.lang.Class)
+58 -> public java.lang.annotation.Annotation[] java.lang.Class.getAnnotations()
+59 -> public java.lang.annotation.Annotation java.lang.Class.getDeclaredAnnotation(java.lang.Class)
+60 -> public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class)
+61 -> public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotations()
+62 -> public java.lang.reflect.AnnotatedType java.lang.Class.getAnnotatedSuperclass()
+63 -> public java.lang.reflect.AnnotatedType[] java.lang.Class.getAnnotatedInterfaces()
+64 -> public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException
+65 -> public final native void java.lang.Object.wait(long) throws java.lang.InterruptedException
+66 -> public final void java.lang.Object.wait() throws java.lang.InterruptedException
+67 -> public boolean java.lang.Object.equals(java.lang.Object)
+68 -> public native int java.lang.Object.hashCode()
+69 -> public final native java.lang.Class java.lang.Object.getClass()
+70 -> public final native void java.lang.Object.notify()
+71 -> public final native void java.lang.Object.notifyAll()
