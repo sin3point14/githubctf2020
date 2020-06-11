@@ -142,12 +142,12 @@ class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
                 (
                     // method accessed belongs to these
                     c.getQualifiedName() in ["Container.getSoftConstraints", "Container.getHardConstraints"] 
-                // or ¬‿¬
+                // or
                 ) or
                 (
-                    // it is an access of these methods
+                    // the accessed method's name belong in these
                     c.getName() in ["keySet"] and
-                    // from a type which inherits from this type
+                    // add the class which declares it inherts from this
                     c.getDeclaringType().getASupertype().getQualifiedName().matches("java.util.Map<%>")
                 )
             )
@@ -182,8 +182,7 @@ class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
     override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
         //spread taint from
         exists( ... )
-        // or ¯\_(ツ)_/¯
-        ) or
+        or
         exists(ConstructorCall cc |
             // a constructor call's argument
             node1.asExpr() = cc.getAnArgument() and
@@ -200,8 +199,8 @@ Running Query-
 
 ![5 New Locations](images/query/1.7.png)
 
-5 new results :)
-Though by now I am tired ot taking these location screenshots and editing them together so here is the location that matters to us-
+5 new results :)  
+Though by now I am tired of taking these location screenshots and editing them togetherm so here is the location that matters to us-
 
 ![Taint spreads to HashSet Ctor](images/query/1.7.locs.png)
 
@@ -247,7 +246,7 @@ Location-
 
 ![1 Result](images/query/1.8.locs.png)
 
-Woohoo game's over pack up time mates!
+Woohoo game's over, pack up time mates!
 
 ### Step 2: Second Issue
 
@@ -550,3 +549,9 @@ Why I need `/bin/bash` there you ask?
 
 ![meme](https://media1.tenor.com/images/24467e83309d18fa430340084a7d7ec1/tenor.gif)  
 
+### Step 4.2: Remediation
+Of course it won't catch anything on the patched code-  
+
+![0 Results](images/remediation.png)
+
+[Thank you for coming to my Ted Talk](https://imgur.com/PmG1ARR)

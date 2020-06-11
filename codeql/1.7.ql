@@ -23,9 +23,9 @@ class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
                 // or ¬‿¬
                 ) or
                 (
-                    // it is an access of these methods
+                    // the accessed method's name belong in these
                     c.getName() in ["keySet"] and
-                    // from a type which inherits from this type
+                    // add the class which declares it inherts from this
                     c.getDeclaringType().getASupertype().getQualifiedName().matches("java.util.Map<%>")
                 )
             )

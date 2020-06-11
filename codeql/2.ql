@@ -23,7 +23,7 @@ class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
                 // or ¬‿¬
                 ) or
                 (
-                    // it is an access of these methods
+                    // the accessed method's name belong in these
                     c.getName() in ["keySet", "stream", "map", "collect"]
                     // PS: removed the below line since now we have a lot of functions that belong to different classes and it isn't necessary to get all their types as the query is fast and retains it accuracy
                     // c.getDeclaringType().getASupertype().getQualifiedName().matches("java.util.Map<%>")
