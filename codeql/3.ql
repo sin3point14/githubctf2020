@@ -6,6 +6,47 @@ import java
 import semmle.code.java.dataflow.TaintTracking
 import DataFlow::PathGraph
 
+predicate evalme(DataFlow::Node node1, DataFlow::Node node2) {
+    exists(TryStmt ts, CatchClause cc, MethodAccess ma1, MethodAccess ma2, VarAccess va, string methodName, RefType caught|
+        // spread taint from a variable access
+        node1.asExpr() = va and
+        // which lies in a try block,
+        va.getEnclosingStmt() = ts.getBlock().getAChild() and
+        // is the qualifier(this is the thing I added :P) or an argument of a method access and
+        (ma1.getQualifier() = va or ma1.getAnArgument() = va) and
+        cc = ts.getACatchClause() and
+        caught = cc.getACaughtType() and
+        // throws an Exception which is caught by catch block associated with the try block
+        ma1.getCallee().getAThrownExceptionType().getASupertype*() = caught and
+        // to a method access
+        node2.asExpr() = ma2 and
+        // in that catch clause
+        ma2.getEnclosingStmt() = cc.getBlock().getAChild() and
+        // whose qualifier is the caught Exception variable
+        ma2.getQualifier() = cc.getVariable().getAnAccess() and
+        methodName = ma2.getCallee().getName() and
+        // and the method name follows the conditions that
+        ( 
+            not (
+                // it is not one of these
+                methodName in ["getStackTrace", "getSuppressed"]
+            ) 
+        ) and
+        (
+            // and
+            (
+                // follows these
+                methodName.matches("get%") or methodName.matches("Get%") or methodName = "toString"
+            // or
+            ) or
+            (
+                // the method is a GetterMethod(though this has no reason to be here as I explained :/)
+                ma2.getMethod() instanceof GetterMethod
+            )
+        )
+    )
+}
+
 class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
     override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
         //spread taint from
@@ -45,22 +86,42 @@ class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
 class TryCatchAdditionalStep extends TaintTracking::AdditionalTaintStep {
     override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
         exists(TryStmt ts, CatchClause cc, MethodAccess ma1, MethodAccess ma2, VarAccess va, string methodName, RefType caught|
+            // spread taint from a variable access
             node1.asExpr() = va and
+            // which lies in a try block,
             va.getEnclosingStmt() = ts.getBlock().getAChild() and
+            // is the qualifier(this is the thing I added :P) or an argument of a method access and
             (ma1.getQualifier() = va or ma1.getAnArgument() = va) and
-    
             cc = ts.getACatchClause() and
-    
             caught = cc.getACaughtType() and
-            
+            // throws an Exception which is caught by catch block associated with the try block
             ma1.getCallee().getAThrownExceptionType().getASupertype*() = caught and
-    
+            // to a method access
             node2.asExpr() = ma2 and
+            // in that catch clause
             ma2.getEnclosingStmt() = cc.getBlock().getAChild() and
+            // whose qualifier is the caught Exception variable
             ma2.getQualifier() = cc.getVariable().getAnAccess() and
             methodName = ma2.getCallee().getName() and
-            ( not (methodName in ["getStackTrace", "getSuppressed"]) ) and
-            (methodName.matches("get%") or methodName.matches("Get%") or methodName = "toString")
+            // and the method name follows the conditions that
+            ( 
+                not (
+                    // it is not one of these
+                    methodName in ["getStackTrace", "getSuppressed"]
+                ) 
+            ) and
+            (
+                // and
+                (
+                    // follows these
+                    methodName.matches("get%") or methodName.matches("Get%") or methodName = "toString"
+                // or
+                ) or
+                (
+                    // the method is a GetterMethod(though this has no reason to be here as I explained :/)
+                    ma2.getMethod() instanceof GetterMethod
+                )
+            )
         )
     }
 }

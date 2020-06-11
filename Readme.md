@@ -153,7 +153,244 @@ Running Normal Flow Query-
 :(
 Running Partial Flow Query-
 
+![12 Results](images/query/1.6.2.png)
 
+:)
+
+The 4 new Locations-
+
+![4 New Locations](images/query/1.6.2.locs.png)
+
+
+### Step 1.7: Adding taint steps through a constructor
+
+Now we can see that the taint doesn't flow through `HashSet`'s constructor so it is time to extend the `step` predicate-
+
+```codeql
+class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
+    override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
+        //spread taint from
+        exists( ... )
+        // or ¯\_(ツ)_/¯
+        ) or
+        exists(ConstructorCall cc |
+            // a constructor call's argument
+            node1.asExpr() = cc.getAnArgument() and
+            // to the constructor call
+            node2.asExpr() = cc and
+            // if the type constructed matches
+            cc.getConstructedType().getName().matches("HashSet<%>")
+        )
+    }
+}
+```
+
+Running Query-
+
+![5 New Locations](images/query/1.7.png)
+
+5 new results :)
+Though by now I am tired ot taking these location screenshots and editing them together so here is the location that matters to us-
+
+![Taint spreads to HashSet Ctor](images/query/1.7.2.png)
+
+Hence the taint is indeed spreading to the constructor :)
+
+### Step 1.8: Finish line for our first issue
+
+So here is the overview of the query-
+
+```codeql
+
+/** 
+* @kind path-problem 
+*/
+import java
+import semmle.code.java.dataflow.TaintTracking
+import DataFlow::PathGraph
+
+class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
+    override predicate step(DataFlow::Node node1, DataFlow::Node node2) { ... }
+}
+
+class ELInjectionTaintTrackingConfig extends TaintTracking::Configuration {
+    ELInjectionTaintTrackingConfig() { this = "ELInjectionTaintTrackingConfig" }
+
+    override predicate isSource(DataFlow::Node source) { ... }
+
+    override predicate isSink(DataFlow::Node sink) { ... }
+}
+
+from ELInjectionTaintTrackingConfig cfg, DataFlow::PathNode source, DataFlow::PathNode sink
+where cfg.hasFlowPath(source, sink)
+select sink, source, sink, "Custom constraint error message contains unsanitized user data"
+```
+
+Find the full query [here](codeql/1.8.ql)
+
+Running query-
+
+![1 Result](images/query/1.8.png)
+
+Location-
+
+![1 Result](images/query/1.8.locs.png)
+
+Woohoo game's over pack up time mates!
+
+### Step 2: Second Issue
+
+...or so I thought :'(
+
+So I am supposed to look for a similar issue in `SchedulingConstraintValidator.java`. Lets have a look at the `isValid` method in this file
+
+![SchedulingConstraintValidator.isValid](images/2.code.png)
+
+So it seems like there are a few more functions to allow the tain to pass through, namely- `stream`, `map`, `collect` and _theoretically_ that should be all. Now this should only need editing 1 line and commenting another in the previous query!
+
+Let me try showing what a diff between the 2 queries would look like-
+
+```codeql
+    /** 
+    * @kind path-problem 
+    */
+    import java
+    import semmle.code.java.dataflow.TaintTracking
+    import DataFlow::PathGraph
+
+    class CustomAdditionalStep extends TaintTracking::AdditionalTaintStep {
+        override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
+            //spread taint from
+            exists(
+                ...
+                (
+                    (
+                        ...
+                    ) or
+                    (
+                        // it is an access of these methods
+-                       c.getName() in ["keySet"] and
++                       c.getName() in ["keySet", "stream", "map", "collect"]
+-                       // from a type which inherits from this type
+-                       c.getDeclaringType().getASupertype().getQualifiedName().matches("java.util.Map<%>")
++                       // PS: removed the below line since now we have a lot of functions that belong to different classes and it isn't necessary to get all their types as the query is fast and retains it accuracy
++                       // c.getDeclaringType().getASupertype().getQualifiedName().matches("java.util.Map<%>")
+                    )
+                )
+            ) or
+            exists( ... )
+        }
+    }
+
+    class ELInjectionTaintTrackingConfig extends TaintTracking::Configuration {
+        ELInjectionTaintTrackingConfig() { this = "ELInjectionTaintTrackingConfig" }
+
+        override predicate isSource(DataFlow::Node source) { ... }
+
+        override predicate isSink(DataFlow::Node sink) { ... }
+    }
+
+    from ELInjectionTaintTrackingConfig cfg, DataFlow::PathNode source, DataFlow::PathNode sink
+    where cfg.hasFlowPath(source, sink)
+    select sink, source, sink, "Custom constraint error message contains unsanitized user data"
+```
+
+Running Query-
+
+![1 Result](images/query/2.png)
+
+1 New Location:
+
+![1 Result](images/query/2.locs.png)
+
+This time I remember that there's Step 3.
+
+## Step 3: Errors and Exceptions
+
+I added a small thing here which I thought to be fitting-
+```java
+try {
+    a.parse(b);
+} catch (Exception e) {
+    sink(e.getMessage())
+}
+```
+If `parse` throws an exception which is caught as `e` then `step` should spread the taint from both `a` and `b` to `e.getMessage()` as the cause can be `a` as well.
+
+For the heuristic to select the method;
+My first thought was that the method should return something out of the exception so I went through [the docs page for the Exception class](https://docs.oracle.com/javase/8/docs/api/java/lang/Exception.html) and found that these functions could return something useful -`getCause`, `getLocalisedMessage`, `getMessage`, `toString`. This is where I also observed something, three of them begin with `get` leading to me finding about the `GetterMethod` in codeql.
+Though the description of `GetterMethod` didn't seem promising-
+
+> A getter method is a method with the following properties:
+>
+> - it has no parameters,
+> - its body contains exactly one statement that returns the value of a field.
+
+Though it is clear that those 3 methods will be doing some processing than these 3 properties restrict and there is a very very small chance that a custom `Exception` would override them to make them a `GetterMethod`. I still had a go with it being heuristic and got 0 results :p.
+
+Now I though in the direction of... These 'get%' patterned Exception methods do stuff and return it so there ought to be more such patterned methods in the custom exceptions. Basically I took the advantage of the good naming practices people follow while coding in Java :p.
+
+Hence my final Heuristic is-
+
+- The method name should not be `getStackTrace`, `getSuppressed`, since they return useless things
+AND
+(
+  - The method name should follow the pattern `get%` or `Get%` or be `toString`
+  OR
+  - The method should be a `GetterMethod`, though this doesn't gice any results in our case there is still that very very small possibility it might work somewhere, someday.
+)
+
+Withough further ado, here is the new class that was added-
+```codeql
+class TryCatchAdditionalStep extends TaintTracking::AdditionalTaintStep {
+    override predicate step(DataFlow::Node node1, DataFlow::Node node2) {
+        exists(TryStmt ts, CatchClause cc, MethodAccess ma1, MethodAccess ma2, VarAccess va, string methodName, RefType caught|
+            // spread taint from a variable access
+            node1.asExpr() = va and
+            // which lies in a try block,
+            va.getEnclosingStmt() = ts.getBlock().getAChild() and
+            // is the qualifier(this is the thing I added :P) or an argument of a method access and
+            (ma1.getQualifier() = va or ma1.getAnArgument() = va) and
+            cc = ts.getACatchClause() and
+            caught = cc.getACaughtType() and
+            // throws an Exception which is caught by catch block associated with the try block
+            ma1.getCallee().getAThrownExceptionType().getASupertype*() = caught and
+            // to a method access
+            node2.asExpr() = ma2 and
+            // in that catch clause
+            ma2.getEnclosingStmt() = cc.getBlock().getAChild() and
+            // whose qualifier is the caught Exception variable
+            ma2.getQualifier() = cc.getVariable().getAnAccess() and
+            methodName = ma2.getCallee().getName() and
+            // and the method name follows the conditions that
+            ( 
+                not (
+                    // it is not one of these
+                    methodName in ["getStackTrace", "getSuppressed"]
+                ) 
+            ) and
+            (
+                // and
+                (
+                    // follows these
+                    methodName.matches("get%") or methodName.matches("Get%") or methodName = "toString"
+                // or
+                ) or
+                (
+                    // the method is a GetterMethod(though this has no reason to be here as I explained :/)
+                    ma2.getMethod() instanceof GetterMethod
+                )
+            )
+        )
+    }
+}
+```
+
+Also if you want to try executing this yourselves please run Quick Evaluation on the predicate `evalme` in the [query file](codeql/3.ql). Running Quick Evaluation on the `step` predicate results in both of the overriding `step` predicates to be evaluated and will result in A LOT of extra results.
+
+Here's what you'll get if the Quick Evaluation is done correctly-
+
+[1675 Results](/images/query/3.png)
 
 
 ## Step 4: Exploit and remediation
