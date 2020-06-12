@@ -1,6 +1,6 @@
 # GitHub Security Lab CTF 4: CodeQL and Chill - The Java Edition
 
-It was one heck of a challenge, I got to learn a hell lot and that's what matters the most :) ... 
+It was one heck of a challenge, I got to learn a hell lot and that's what matters the most :)  
 
 ### A brief description of the challenge
 The Github Security team found a [SSTI RCE bug](https://securitylab.github.com/advisories/GHSL-2020-028-netflix-titus) in Netflix's Container Management Platform, [Titus Control Panel](https://github.com/Netflix/titus-control-plane/) and this CTF is modelled upon how one can find it and other similar bugs.  
@@ -406,6 +406,75 @@ Here's what you'll get if the Quick Evaluation is done correctly-
 
 ![1675 Results](/images/query/3.png)
 
+## BONUS
+
+I didn't manage to complete this sadly :(  
+But I did find some leads and will be show them  
+
+I managed to mark out all such variables in the source which will be validated by a `isValid` overriding method(and which method as well) which were found in Step 1.1  
+
+So first I read about the ContraintValidation and [this tutorial of how to make a custom Validator](https://www.baeldung.com/spring-mvc-custom-validator) taught me how it works. Very briefly, A class(lets call it `ThatClass`) inherits from `ConstraintValidator<A,B>` declares an `isValid` method for the Generic's Type arguments. Then somewhere an AnnotationType is defined which has an annotation `Constraint` which will have `ThatClass.class` value passed in it. On whichever Class/Variable this annotation will be apllied it will be validate by `ThatClass.isValid`.  
+This also describes what my query does-  
+
+```codeql
+Variable isSource(DataFlow::Node source) {
+  exists(Method overriding, Method overridden, RefType rt,
+    Annotation constraintAnnotation, Annotation interfaceAnnotation, 
+    AnnotationType interfaceAnnotationType, ParameterizedType pt, 
+    Annotatable a, Variable v|
+    // the isValid we are looking for should be an overriding method 
+    overriding.overrides(overridden) and 
+    // the method which is overridden should match the pattern
+    overridden.getQualifiedName().matches("ConstraintValidator<%,%>.isValid") and
+    // source would be the first parameter of the overriding method
+    source.asParameter() = overriding.getParameter(0) and
+    // get the RefType of the overriding method's class
+    rt = overriding.getDeclaringType() and
+    // get all Constraint Annotations 
+    constraintAnnotation.toString() = "Constraint" and
+    // Check if that annotation is applied on an AnnotationType
+    constraintAnnotation = interfaceAnnotationType.getAnAnnotation() and
+    // get the type of value passed in "validatedBy" field and it is a ParameterizedType 
+    pt = constraintAnnotation.getValue("validatedBy").getAChildExpr().getType() and
+    // A sanity check to make sure it is a SomeClass.class equiavlent to Class<SomeClass> 
+    pt.getName().matches("Class<%>") and
+    // Compare the SomeClass to the RefType of overriding method's class,
+    // hence interfaceAnnotationType would by the the AnnotationType to be 
+    // validated by the overriding method
+    pt.getATypeArgument() = rt and
+    // linking AnnotationType to Annotation
+    interfaceAnnotation.getType() = interfaceAnnotationType and
+    // Check all Annotables for having the interfaceAnnotation
+    a.getAnAnnotation() = interfaceAnnotation and
+    (
+      (
+        // if Annotable is a variable 
+        v = a
+      ) or
+      (
+        // if Annotable is a type
+        v.getType() = a
+      ) 
+    ) and
+    // Variable should be from source
+    v.fromSource() and
+    // Return all Variables correspoinding to this overriding method
+    result = v
+  )
+}
+```
+Find the full query [here](codeql/1.1.bonus.ql)
+
+Quick Evaluation-
+
+![2404 Results](images/query/bonus.png)
+
+The issue I faced was that I couldn't connect these variables to a `RemoteFlowSource`.
+- tried checking if any `VarAccess` of these was `RemoteFlowSource`
+- tried to setup TaintTracking from any of the `RemoteFlowSources` to the variables
+
+The only possible thing I could see was if these variables were a field of the `RemoteFlowSource`s' Classes or perhaps a field in the fields' Classes or perhaps...  
+So you see the issue, ^ I don't know where to stop :(  
 
 ## Step 4: Exploit and remediation
 
