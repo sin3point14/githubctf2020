@@ -2,6 +2,8 @@
 
 It was one heck of a challenge, I got to learn a hell lot and that's what matters the most :)  
 
+**EDIT:** Got the 2nd prize! [Woohoo!!](https://youtu.be/ub82Xb1C8os)
+
 ### A brief description of the challenge
 The Github Security team found a [SSTI RCE bug](https://securitylab.github.com/advisories/GHSL-2020-028-netflix-titus) in Netflix's Container Management Platform, [Titus Control Panel](https://github.com/Netflix/titus-control-plane/) and this CTF is modelled upon how one can find it and other similar bugs.  
 
